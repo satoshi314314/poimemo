@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ポイメモ — ポイ活すすみ帳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Zen+Old+Mincho:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F1E4;
+    --paper-deep:#EEE6D2;
+    --ink:#22281F;
+    --ink-soft:#5B5C4E;
+    --line:#CDC3A6;
+    --stamp:#B0392A;
+    --stamp-deep:#8E2C20;
+    --gold:#9C7A17;
+    --gold-bright:#C79A1E;
+    --card:#FFFDF6;
+    --shadow: 0 2px 0 rgba(34,40,31,0.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 8% 4%, rgba(156,122,23,0.06), transparent 40%),
+      var(--paper);
+    background-attachment:fixed;
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .bg-texture{
+    position:fixed; inset:0; pointer-events:none; z-index:0; opacity:0.5;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(34,40,31,0.025) 0px, rgba(34,40,31,0.025) 1px, transparent 1px, transparent 34px);
+  }
+  .wrap{position:relative; z-index:1; max-width:720px; margin:0 auto; padding:28px 18px 120px;}
+
+  header.hero{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    border-bottom:3px double var(--ink);
+    padding-bottom:14px; margin-bottom:22px;
+  }
+  .hero-title{
+    font-family:'Zen Old Mincho', serif;
+    font-size:30px; font-weight:600; letter-spacing:0.08em; color:var(--ink);
+    display:flex; align-items:baseline; gap:10px;
+  }
+  .hero-title .stamp-mark{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:30px; height:30px; border-radius:50%;
+    border:2px solid var(--stamp); color:var(--stamp);
+    font-family:'Shippori Mincho', serif; font-size:15px; font-weight:800;
+    transform:rotate(-8deg);
+  }
+  .hero-sub{font-size:11px; color:var(--ink-soft); letter-spacing:0.15em; margin-top:4px;}
+  .hero-count{
+    font-family:'Shippori Mincho', serif; text-align:right; color:var(--gold);
+  }
+  .hero-count .n{font-size:26px; font-weight:800; line-height:1;}
+  .hero-count .l{font-size:10px; color:var(--ink-soft); letter-spacing:0.1em;}
+
+  .add-bar{
+    display:flex; gap:10px; margin-bottom:26px;
+  }
+  .btn{
+    font-family:'Zen Kaku Gothic New', sans-serif; font-weight:700; font-size:13px;
+    border:none; cursor:pointer; padding:12px 18px; border-radius:3px;
+    letter-spacing:0.03em; transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{
+    background:var(--ink); color:var(--paper); box-shadow:var(--shadow);
+    flex:1;
+  }
+  .btn-primary:hover{background:#333c2b;}
+  .btn-ghost{
+    background:transparent; color:var(--ink-soft); border:1.5px solid var(--line);
+    flex:0 0 auto;
+  }
+  .btn-ghost:hover{border-color:var(--ink-soft); color:var(--ink);}
+
+  /* Campaign cards */
+  .card{
+    background:var(--card);
+    border:1.5px solid var(--line);
+    border-radius:3px;
+    margin-bottom:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    position:relative;
+  }
+  .card::before{
+    content:'';
+    position:absolute; left:0; top:0; bottom:0; width:6px;
+    background:var(--tab-color, var(--line));
+  }
+  .card-head{
+    padding:16px 18px 14px 22px; cursor:pointer;
+    display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+  }
+  .card-title-row{flex:1; min-width:0;}
+  .card-title{
+    font-family:'Shippori Mincho', serif; font-weight:700; font-size:17px;
+    color:var(--ink); margin:0 0 4px; word-break:break-word;
+  }
+  .card-meta{
+    font-size:11px; color:var(--ink-soft); display:flex; gap:10px; flex-wrap:wrap;
+  }
+  .card-meta span{white-space:nowrap;}
+  .progress-ring{
+    width:44px; height:44px; flex-shrink:0; position:relative;
+  }
+  .progress-ring svg{transform:rotate(-90deg);}
+  .progress-ring .pct{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; font-family:'Zen Kaku Gothic New';
+    color:var(--ink);
+  }
+
+  .next-step-strip{
+    margin:0 18px 14px 22px;
+    background:var(--paper-deep);
+    border:1px dashed var(--gold);
+    border-radius:2px;
+    padding:9px 12px;
+    font-size:12.5px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .next-step-strip .lbl{
+    font-family:'Shippori Mincho', serif; font-weight:700; color:var(--gold);
+    font-size:11px; flex-shrink:0;
+  }
+  .next-step-strip.done-all{border-color:var(--stamp); color:var(--stamp-deep);}
+  .next-step-strip.done-all .lbl{color:var(--stamp);}
+
+  .steps{
+    padding:4px 18px 18px 22px; display:none;
+  }
+  .steps.open{display:block;}
+
+  .flow-row{
+    display:flex; align-items:stretch; gap:14px;
+    position:relative;
+  }
+  .flow-node-col{
+    display:flex; flex-direction:column; align-items:center; flex-shrink:0; width:30px;
+  }
+  .flow-connector{
+    width:2px; flex:1; min-height:14px;
+    background:var(--line);
+  }
+  .flow-connector.filled{background:var(--stamp);}
+  .flow-row:last-child .flow-connector{display:none;}
+
+  .check-btn{
+    width:30px; height:30px; flex-shrink:0;
+    border-radius:50%; border:2px solid var(--line); background:var(--card);
+    cursor:pointer; position:relative; display:flex; align-items:center; justify-content:center;
+    font-family:'Zen Kaku Gothic New'; font-size:12px; font-weight:800; color:var(--ink-soft);
+    transition: border-color .15s, background .15s, transform .12s;
+    z-index:1;
+  }
+  .check-btn:active{transform:scale(0.92);}
+  .check-btn.next-up{
+    border-color:var(--gold-bright);
+    box-shadow:0 0 0 3px rgba(199,154,30,0.18);
+  }
+  .check-btn.done{
+    border-color:var(--stamp); background:var(--stamp); color:var(--paper);
+  }
+  .check-btn.done::after{
+    content:'済';
+    font-family:'Shippori Mincho', serif; font-weight:800; font-size:12px;
+    color:var(--paper);
+    transform:rotate(-14deg);
+  }
+  .check-btn.done span{display:none;}
+
+  .flow-content{
+    flex:1; min-width:0; padding-bottom:22px;
+  }
+  .flow-row:last-child .flow-content{padding-bottom:2px;}
+  .step-card{
+    background:var(--paper-deep); border:1.5px solid var(--line); border-radius:4px;
+    padding:9px 12px; margin-top:1px;
+    transition: background .15s, border-color .15s, opacity .15s;
+  }
+  .step-card.next-up{
+    border-color:var(--gold-bright); background:var(--card);
+  }
+  .step-card.done{
+    background:transparent; border-color:var(--paper-deep); opacity:0.7;
+  }
+  .step-text{
+    font-size:13.5px; line-height:1.5; color:var(--ink);
+  }
+  .step-text.done{color:var(--ink-soft); text-decoration:line-through; text-decoration-color:var(--line);}
+  .step-tag{
+    font-size:9.5px; letter-spacing:0.08em; color:var(--gold); font-weight:700; margin-bottom:2px;
+    font-family:'Zen Kaku Gothic New';
+  }
+  .card-actions{
+    display:flex; justify-content:flex-end; padding:0 18px 14px 22px; gap:8px;
+  }
+  .link-btn{
+    background:none; border:none; font-size:11px; color:var(--ink-soft);
+    cursor:pointer; text-decoration:underline; padding:4px;
+  }
+  .link-btn.danger{color:var(--stamp-deep);}
+
+  .empty{
+    text-align:center; padding:70px 20px; color:var(--ink-soft);
+  }
+  .empty .stamp-mark-big{
+    width:56px; height:56px; border-radius:50%; border:2.5px solid var(--line);
+    display:flex; align-items:center; justify-content:center; margin:0 auto 16px;
+    font-family:'Shippori Mincho', serif; font-size:24px; color:var(--line);
+  }
+  .empty p{font-size:13px; line-height:1.8;}
+
+  /* Modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(34,40,31,0.55);
+    display:none; align-items:flex-end; justify-content:center; z-index:50;
+  }
+  .overlay.open{display:flex;}
+  @media (min-width:640px){
+    .overlay{align-items:center;}
+  }
+  .modal{
+    background:var(--paper); width:100%; max-width:520px;
+    max-height:88vh; overflow-y:auto;
+    border-radius:10px 10px 0 0;
+    border:1.5px solid var(--ink);
+    padding:22px 20px 26px;
+    box-shadow:0 -4px 24px rgba(0,0,0,0.2);
+  }
+  @media (min-width:640px){ .modal{border-radius:6px;} }
+  .modal-title{
+    font-family:'Zen Old Mincho', serif; font-size:19px; font-weight:600;
+    margin:0 0 16px; border-bottom:2px double var(--ink); padding-bottom:10px;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block; font-size:11px; color:var(--ink-soft); margin-bottom:5px; letter-spacing:0.05em;
+  }
+  .field input[type=text], .field textarea{
+    width:100%; padding:9px 10px; border:1.5px solid var(--line); border-radius:3px;
+    background:var(--card); font-family:inherit; font-size:13.5px; color:var(--ink);
+  }
+  .field textarea{resize:vertical; min-height:70px; line-height:1.6;}
+  .field input:focus, .field textarea:focus{outline:2px solid var(--gold-bright); outline-offset:1px;}
+
+  .upload-zone{
+    border:2px dashed var(--line); border-radius:5px; padding:20px;
+    text-align:center; cursor:pointer; transition:border-color .15s;
+    background:var(--card);
+  }
+  .upload-zone:hover, .upload-zone.drag{border-color:var(--gold);}
+  .upload-zone img{max-width:100%; max-height:180px; border-radius:3px; margin-bottom:8px;}
+  .upload-zone .hint{font-size:12px; color:var(--ink-soft);}
+  .upload-zone .hint-main{font-size:13px; color:var(--ink); font-weight:700; margin-bottom:3px;}
+
+  .thumb-grid{
+    display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; justify-content:center;
+  }
+  .thumb-item{
+    position:relative; width:72px; height:72px; border-radius:4px; overflow:hidden;
+    border:1.5px solid var(--line);
+  }
+  .thumb-item img{width:100%; height:100%; object-fit:cover; display:block; max-width:none; max-height:none; margin:0;}
+  .thumb-item .thumb-remove{
+    position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%;
+    background:rgba(34,40,31,0.75); color:var(--paper); border:none; font-size:12px;
+    line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .thumb-add{
+    width:72px; height:72px; border-radius:4px; border:1.5px dashed var(--line);
+    display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--ink-soft);
+    cursor:pointer; background:var(--paper-deep);
+  }
+
+  .ai-status{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--gold);
+    padding:10px 0; font-weight:700;
+  }
+  .spinner{
+    width:14px; height:14px; border-radius:50%;
+    border:2px solid var(--paper-deep); border-top-color:var(--gold);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .ai-error{
+    font-size:12px; color:var(--stamp-deep); background:#F7E3DE; border:1px solid var(--stamp);
+    padding:8px 10px; border-radius:3px; margin-top:8px; line-height:1.6;
+  }
+
+  .draft-steps{margin-top:6px;}
+  .draft-step{
+    display:flex; gap:8px; align-items:flex-start; margin-bottom:7px;
+  }
+  .draft-step input{flex:1;}
+  .draft-step button{
+    background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:16px; padding:4px 6px;
+  }
+  .draft-step button:hover{color:var(--stamp-deep);}
+  .add-step-row{
+    background:none; border:1px dashed var(--line); color:var(--ink-soft);
+    width:100%; padding:8px; border-radius:3px; font-size:12px; cursor:pointer; margin-top:2px;
+  }
+  .add-step-row:hover{border-color:var(--gold); color:var(--gold);}
+
+  .modal-actions{
+    display:flex; gap:10px; margin-top:18px;
+  }
+  .modal-actions .btn{flex:1;}
+
+  .tabbar{
+    display:flex; gap:6px; margin-bottom:16px;
+  }
+  .tabbar button{
+    flex:1; background:var(--card); border:1.5px solid var(--line); border-radius:3px;
+    padding:8px; font-size:12px; font-weight:700; color:var(--ink-soft); cursor:pointer;
+    font-family:inherit;
+  }
+  .tabbar button.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+
+  .fab-close{
+    position:absolute; top:14px; right:14px; background:none; border:none;
+    font-size:20px; color:var(--ink-soft); cursor:pointer; line-height:1;
+  }
+  .modal{position:relative;}
+
+  .loading-app{
+    text-align:center; padding:100px 20px; color:var(--ink-soft); font-size:13px;
+  }
+</style>
+</head>
+<body>
+<div class="bg-texture"></div>
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <div class="hero-title"><span class="stamp-mark">記</span>ポイメモ</div>
+      <div class="hero-sub">案件ごとの達成条件を、次の一手までひと目で</div>
+    </div>
+    <div class="hero-count">
+      <div class="n" id="activeCount">0</div>
+      <div class="l">すすめ中の案件</div>
+    </div>
+  </header>
+
+  <div class="add-bar">
+    <button class="btn btn-primary" id="openAddBtn">＋ 新しい案件を追加</button>
+    <button class="btn btn-ghost" id="openBackupBtn" title="バックアップ・復元">⇅</button>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<!-- Backup Modal -->
+<div class="overlay" id="backupOverlay">
+  <div class="modal">
+    <button class="fab-close" id="closeBackupBtn">×</button>
+    <div class="modal-title">バックアップ・復元</div>
+    <div class="field">
+      <label>現在のデータ（コピーして保管しておけます）</label>
+      <textarea id="backupText" style="min-height:120px; font-size:11px;" readonly></textarea>
+    </div>
+    <button class="btn btn-ghost" id="copyBackupBtn" style="width:100%; margin-bottom:16px;">クリップボードにコピー</button>
+    <div class="field">
+      <label>このテキストを貼り付けて復元</label>
+      <textarea id="restoreText" style="min-height:100px; font-size:11px;" placeholder="バックアップしたJSONを貼り付け"></textarea>
+    </div>
+    <button class="btn btn-primary" id="restoreBtn" style="width:100%;">このデータで復元する</button>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="fab-close" id="closeModalBtn">×</button>
+    <div class="modal-title" id="modalTitle">新しい案件</div>
+
+    <div class="tabbar" id="tabbarRow">
+      <button id="tabImage" class="active">画像から読み取る</button>
+      <button id="tabManual">手入力する</button>
+    </div>
+
+    <div id="paneImage">
+      <div class="field">
+        <label>条件が書かれた画面のスクリーンショット（複数枚OK）</label>
+        <div class="upload-zone" id="uploadZone">
+          <div id="uploadZoneContent">
+            <div class="hint-main">タップして画像を選択</div>
+            <div class="hint">キャンペーンページや条件一覧の画面など。複数枚まとめて選べます</div>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
+      </div>
+      <button class="btn btn-primary" id="analyzeBtn" style="width:100%;" disabled>AIで達成条件を読み取る</button>
+      <div id="aiStatusArea"></div>
+    </div>
+
+    <div id="paneManual" style="display:none;">
+      <div class="field">
+        <label>案件名</label>
+        <input type="text" id="manualTitle" placeholder="例：〇〇銀行 口座開設キャンペーン">
+      </div>
+      <div class="field">
+        <label>特典・ポイント（任意）</label>
+        <input type="text" id="manualReward" placeholder="例：3,000円相当のポイント">
+      </div>
+      <div class="field">
+        <label>期限（任意）</label>
+        <input type="text" id="manualDeadline" placeholder="例：2026年9月30日まで">
+      </div>
+    </div>
+
+    <div id="draftArea" style="display:none;">
+      <div class="field" style="margin-top:16px;">
+        <label>案件名</label>
+        <input type="text" id="draftTitle">
+      </div>
+      <div class="field">
+        <label>特典・ポイント</label>
+        <input type="text" id="draftReward">
+      </div>
+      <div class="field">
+        <label>期限</label>
+        <input type="text" id="draftDeadline">
+      </div>
+      <div class="field">
+        <label>達成までのステップ（順番・文言は編集できます）</label>
+        <div class="draft-steps" id="draftSteps"></div>
+        <button class="add-step-row" id="addDraftStepBtn">＋ ステップを追加</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelBtn">キャンセル</button>
+      <button class="btn btn-primary" id="saveBtn" style="display:none;">この内容で保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'poikatsu:campaigns';
+let campaigns = [];
+let uploadedImages = []; // [{base64, mediaType, dataUrl}]
+let currentMode = 'image'; // 'image' | 'manual'
+let editingId = null;
+
+const $ = (id) => document.getElementById(id);
+
+function uid(){ return 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+// ---------- storage ----------
+// Claudeのアーティファクト内では window.storage を使い、
+// GitHub Pagesなど他の場所でホストした場合は localStorage に自動で切り替える。
+const hasClaudeStorage = (typeof window !== 'undefined') && !!window.storage
+  && typeof window.storage.get === 'function' && typeof window.storage.set === 'function';
+
+async function storageGetRaw(key){
+  if(hasClaudeStorage){
+    try{
+      const res = await window.storage.get(key, false);
+      return res && typeof res.value === 'string' ? res.value : null;
+    }catch(e){
+      console.warn('window.storageが応答しなかったため、この端末の保存領域を使います。', e.message || e);
+      try{ return localStorage.getItem(key); }catch(e2){ return null; }
+    }
+  }
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+
+async function storageSetRaw(key, value){
+  if(hasClaudeStorage){
+    try{
+      const result = await window.storage.set(key, value, false);
+      if(result) return true;
+      throw new Error('empty response');
+    }catch(e){
+      console.warn('window.storageが応答しなかったため、この端末の保存領域を使います。', e.message || e);
+      try{ localStorage.setItem(key, value); return true; }catch(e2){ return false; }
+    }
+  }
+  try{ localStorage.setItem(key, value); return true; }catch(e){ return false; }
+}
+
+async function loadCampaigns(){
+  $('list').innerHTML = '<div class="loading-app">読み込み中…</div>';
+  try{
+    const raw = await storageGetRaw(STORAGE_KEY);
+    campaigns = raw ? JSON.parse(raw) : [];
+  }catch(e){
+    campaigns = [];
+  }
+  render();
+}
+
+async function saveCampaigns(){
+  const ok = await storageSetRaw(STORAGE_KEY, JSON.stringify(campaigns));
+  if(!ok){ console.error('保存に失敗しました'); }
+}
+
+// ---------- rendering ----------
+function progressOf(c){
+  if(!c.steps.length) return 0;
+  return Math.round((c.steps.filter(s=>s.done).length / c.steps.length) * 100);
+}
+
+function tabColorFor(pct){
+  if(pct >= 100) return 'var(--stamp)';
+  if(pct >= 50) return 'var(--gold-bright)';
+  return 'var(--line)';
+}
+
+function ringSvg(pct){
+  const r = 18, c = 2*Math.PI*r;
+  const offset = c - (pct/100)*c;
+  const color = pct>=100 ? 'var(--stamp)' : 'var(--gold-bright)';
+  return `<svg width="44" height="44">
+    <circle cx="22" cy="22" r="${r}" fill="none" stroke="var(--paper-deep)" stroke-width="4"/>
+    <circle cx="22" cy="22" r="${r}" fill="none" stroke="${color}" stroke-width="4"
+      stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function render(){
+  const listEl = $('list');
+  $('activeCount').textContent = campaigns.filter(c=>progressOf(c)<100).length;
+
+  if(campaigns.length === 0){
+    listEl.innerHTML = `<div class="empty">
+      <div class="stamp-mark-big">記</div>
+      <p>まだ案件がありません。<br>スクショを読み込ませて、最初の一冊を書き始めましょう。</p>
+    </div>`;
+    return;
+  }
+
+  // 未達成を上に、達成済みは下に
+  const sorted = [...campaigns].sort((a,b)=>{
+    const pa = progressOf(a), pb = progressOf(b);
+    if((pa>=100) !== (pb>=100)) return (pa>=100) ? 1 : -1;
+    return b.createdAt - a.createdAt;
+  });
+
+  listEl.innerHTML = sorted.map(c => {
+    const pct = progressOf(c);
+    const nextStep = c.steps.find(s=>!s.done);
+    const metaParts = [];
+    if(c.reward) metaParts.push(`<span>🎁 ${escapeHtml(c.reward)}</span>`);
+    if(c.deadline) metaParts.push(`<span>⏳ ${escapeHtml(c.deadline)}</span>`);
+    metaParts.push(`<span>${c.steps.filter(s=>s.done).length}/${c.steps.length} 完了</span>`);
+
+    return `
+    <div class="card" style="--tab-color:${tabColorFor(pct)}" data-id="${c.id}">
+      <div class="card-head" data-toggle="${c.id}">
+        <div class="card-title-row">
+          <p class="card-title">${escapeHtml(c.title)}</p>
+          <div class="card-meta">${metaParts.join('')}</div>
+        </div>
+        <div class="progress-ring">${ringSvg(pct)}<div class="pct">${pct}%</div></div>
+      </div>
+      <div class="next-step-strip ${nextStep ? '' : 'done-all'}">
+        <span class="lbl">${nextStep ? '次にやる' : '達成'}</span>
+        <span>${nextStep ? escapeHtml(nextStep.text) : 'すべての条件を達成しました！'}</span>
+      </div>
+      <div class="steps ${c._open ? 'open' : ''}" id="steps-${c.id}">
+        ${c.steps.map((s, i) => {
+          const isNextUp = !s.done && s.id === (nextStep && nextStep.id);
+          const prevDone = i === 0 ? true : c.steps[i-1].done;
+          return `
+          <div class="flow-row">
+            <div class="flow-node-col">
+              <button class="check-btn ${s.done?'done':''} ${isNextUp?'next-up':''}" data-step-toggle="${c.id}|${s.id}"><span>${i+1}</span></button>
+              <div class="flow-connector ${s.done?'filled':''}"></div>
+            </div>
+            <div class="flow-content">
+              <div class="step-card ${s.done?'done':''} ${isNextUp?'next-up':''}">
+                <div class="step-tag">STEP ${i+1}${isNextUp?' ・ 次にやる':''}</div>
+                <div class="step-text ${s.done?'done':''}">${escapeHtml(s.text)}</div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="card-actions">
+        <button class="link-btn" data-toggle="${c.id}">${c._open?'たたむ':'ステップを見る'}</button>
+        <button class="link-btn" data-edit="${c.id}">編集</button>
+        <button class="link-btn danger" data-delete="${c.id}">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
+document.addEventListener('click', async (e) => {
+  const toggleId = e.target.closest('[data-toggle]')?.dataset.toggle;
+  if(toggleId){
+    const c = campaigns.find(x=>x.id===toggleId);
+    if(c){ c._open = !c._open; render(); }
+    return;
+  }
+  const stepKey = e.target.closest('[data-step-toggle]')?.dataset.stepToggle;
+  if(stepKey){
+    const [cid, sid] = stepKey.split('|');
+    const c = campaigns.find(x=>x.id===cid);
+    if(c){
+      c._open = true;
+      const s = c.steps.find(x=>x.id===sid);
+      s.done = !s.done;
+      render();
+      await saveCampaigns();
+    }
+    return;
+  }
+  const delId = e.target.closest('[data-delete]')?.dataset.delete;
+  if(delId){
+    if(confirm('この案件を削除しますか？')){
+      campaigns = campaigns.filter(x=>x.id!==delId);
+      render();
+      await saveCampaigns();
+    }
+    return;
+  }
+  const editId = e.target.closest('[data-edit]')?.dataset.edit;
+  if(editId){
+    openEditModal(editId);
+    return;
+  }
+});
+
+// ---------- modal ----------
+function openModal(){
+  $('overlay').classList.add('open');
+  resetModal();
+}
+function closeModal(){
+  $('overlay').classList.remove('open');
+}
+function resetModal(){
+  editingId = null;
+  currentMode = 'image';
+  $('modalTitle').textContent = '新しい案件';
+  $('tabbarRow').style.display = 'flex';
+  $('tabImage').classList.add('active');
+  $('tabManual').classList.remove('active');
+  $('paneImage').style.display = 'block';
+  $('paneManual').style.display = 'none';
+  $('draftArea').style.display = 'none';
+  $('saveBtn').style.display = 'none';
+  $('aiStatusArea').innerHTML = '';
+  $('analyzeBtn').disabled = true;
+  $('uploadZoneContent').innerHTML = `<div class="hint-main">タップして画像を選択</div><div class="hint">キャンペーンページや条件一覧の画面など。複数枚まとめて選べます</div>`;
+  $('fileInput').value = '';
+  $('manualTitle').value = '';
+  $('manualReward').value = '';
+  $('manualDeadline').value = '';
+  uploadedImages = [];
+}
+
+function openEditModal(id){
+  const c = campaigns.find(x=>x.id===id);
+  if(!c) return;
+  editingId = id;
+  $('overlay').classList.add('open');
+  $('modalTitle').textContent = '案件を編集';
+  $('tabbarRow').style.display = 'none';
+  $('paneImage').style.display = 'none';
+  $('paneManual').style.display = 'none';
+  $('aiStatusArea').innerHTML = '';
+  $('draftArea').style.display = 'block';
+  $('saveBtn').style.display = 'block';
+  $('draftTitle').value = c.title;
+  $('draftReward').value = c.reward || '';
+  $('draftDeadline').value = c.deadline || '';
+  draftStepsState = c.steps.map(s => ({id: s.id, text: s.text, done: s.done}));
+  renderDraftSteps();
+}
+
+$('openAddBtn').addEventListener('click', openModal);
+$('closeModalBtn').addEventListener('click', closeModal);
+$('cancelBtn').addEventListener('click', closeModal);
+$('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeModal(); });
+
+$('tabImage').addEventListener('click', ()=>{
+  currentMode = 'image';
+  $('tabImage').classList.add('active');
+  $('tabManual').classList.remove('active');
+  $('paneImage').style.display = 'block';
+  $('paneManual').style.display = 'none';
+  $('draftArea').style.display = 'none';
+  $('saveBtn').style.display = 'none';
+});
+$('tabManual').addEventListener('click', ()=>{
+  currentMode = 'manual';
+  $('tabManual').classList.add('active');
+  $('tabImage').classList.remove('active');
+  $('paneManual').style.display = 'block';
+  $('paneImage').style.display = 'none';
+  $('draftArea').style.display = 'none';
+  $('saveBtn').style.display = 'none';
+  // 手入力はいきなり下書きへ
+  showDraftForManual();
+});
+
+$('uploadZone').addEventListener('click', (e)=>{
+  if(e.target.closest('.thumb-remove')) return;
+  $('fileInput').click();
+});
+$('fileInput').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  if(!files.length) return;
+
+  const readOne = (file) => new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      resolve({ base64: dataUrl.split(',')[1], mediaType: file.type || 'image/png', dataUrl });
+    };
+    reader.onerror = () => reject(new Error('画像の読み込みに失敗しました'));
+    reader.readAsDataURL(file);
+  });
+
+  try{
+    const results = await Promise.all(files.map(readOne));
+    uploadedImages = uploadedImages.concat(results);
+    renderThumbs();
+  }catch(err){
+    console.error(err);
+  }
+  $('fileInput').value = '';
+});
+
+function renderThumbs(){
+  $('analyzeBtn').disabled = uploadedImages.length === 0;
+  if(uploadedImages.length === 0){
+    $('uploadZoneContent').innerHTML = `<div class="hint-main">タップして画像を選択</div><div class="hint">キャンペーンページや条件一覧の画面など。複数枚まとめて選べます</div>`;
+    return;
+  }
+  const thumbs = uploadedImages.map((img, i) => `
+    <div class="thumb-item">
+      <img src="${img.dataUrl}" alt="screenshot ${i+1}">
+      <button type="button" class="thumb-remove" data-thumb-remove="${i}">×</button>
+    </div>
+  `).join('');
+  $('uploadZoneContent').innerHTML = `
+    <div class="thumb-grid">
+      ${thumbs}
+      <div class="thumb-add" id="thumbAddBtn">＋</div>
+    </div>
+    <div class="hint">${uploadedImages.length}枚選択中・タップで追加</div>
+  `;
+  const addBtn = document.getElementById('thumbAddBtn');
+  if(addBtn) addBtn.addEventListener('click', (e)=>{ e.stopPropagation(); $('fileInput').click(); });
+}
+
+$('uploadZoneContent') && document.addEventListener('click', (e)=>{
+  const idx = e.target.closest('[data-thumb-remove]')?.dataset.thumbRemove;
+  if(idx !== undefined){
+    uploadedImages.splice(Number(idx), 1);
+    renderThumbs();
+  }
+});
+
+$('analyzeBtn').addEventListener('click', analyzeImage);
+
+async function analyzeImage(){
+  if(!uploadedImages.length) return;
+  $('aiStatusArea').innerHTML = `<div class="ai-status"><div class="spinner"></div>画像を読み取っています…</div>`;
+  $('analyzeBtn').disabled = true;
+  $('draftArea').style.display = 'none';
+  $('saveBtn').style.display = 'none';
+
+  try{
+    const imageBlocks = uploadedImages.map(img => ({
+      type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 }
+    }));
+    const promptText = uploadedImages.length > 1
+      ? `これらは同じ「ポイ活」キャンペーンの条件が書かれた画面のスクリーンショット（複数枚）です。すべての画像の内容を合わせて、達成条件をひとつのタスクリストに整理してください。`
+      : `これは「ポイ活」キャンペーンの条件が書かれた画面のスクリーンショットです。`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            ...imageBlocks,
+            { type: 'text', text: `${promptText}
+達成条件を、実行する順番に沿った具体的なタスクのリストに分解してください。
+JSONオブジェクトのみを返してください。前置きや説明、Markdownのコードフェンスは一切不要です。
+
+出力形式（このJSON構造のみを出力）:
+{
+  "title": "案件名（サービス名やキャンペーン名）",
+  "reward": "もらえる特典やポイント数（不明なら空文字）",
+  "deadline": "期限（不明なら空文字）",
+  "steps": ["ステップ1の説明", "ステップ2の説明", "..."]
+}
+
+ステップは「口座を開設する」「アプリでエントリーする」「初回ログインする」のように、ユーザーが次に何をすればいいか一目でわかる具体的な行動として書いてください。5〜8個程度を目安にしてください。` }
+          ]
+        }]
+      })
+    });
+
+    if(!response.ok){
+      throw new Error('API request failed: ' + response.status);
+    }
+
+    const data = await response.json();
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    if(!textBlock) throw new Error('AIからの応答にテキストが含まれていません');
+
+    let clean = textBlock.text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/,'').replace(/```\s*$/,'');
+    let parsed;
+    try{
+      parsed = JSON.parse(clean);
+    }catch(parseErr){
+      throw new Error('AIの応答を解析できませんでした。もう一度お試しください。');
+    }
+
+    $('aiStatusArea').innerHTML = `<div class="ai-status" style="color:var(--stamp);">✓ 読み取りが完了しました。内容を確認して保存してください。</div>`;
+    showDraft(parsed);
+
+  }catch(err){
+    console.error(err);
+    $('aiStatusArea').innerHTML = `<div class="ai-error">読み取りに失敗しました：${escapeHtml(err.message || String(err))}<br>もう一度試すか、「手入力する」タブから直接入力してください。</div>`;
+  }finally{
+    $('analyzeBtn').disabled = false;
+  }
+}
+
+let draftStepsState = [];
+
+function showDraft(parsed){
+  $('draftArea').style.display = 'block';
+  $('saveBtn').style.display = 'block';
+  $('draftTitle').value = parsed.title || '';
+  $('draftReward').value = parsed.reward || '';
+  $('draftDeadline').value = parsed.deadline || '';
+  draftStepsState = (parsed.steps && parsed.steps.length ? parsed.steps : ['']).map(t => ({id: uid(), text: t, done: false}));
+  renderDraftSteps();
+}
+
+function showDraftForManual(){
+  $('draftArea').style.display = 'block';
+  $('saveBtn').style.display = 'block';
+  $('draftTitle').value = $('manualTitle').value;
+  $('draftReward').value = $('manualReward').value;
+  $('draftDeadline').value = $('manualDeadline').value;
+  draftStepsState = [{id: uid(), text: '', done: false}];
+  renderDraftSteps();
+}
+
+// keep manual fields synced into draft when typing before switching
+['manualTitle','manualReward','manualDeadline'].forEach(id=>{
+  $(id).addEventListener('input', ()=>{
+    if($('draftArea').style.display === 'block'){
+      $('draftTitle').value = $('manualTitle').value;
+      $('draftReward').value = $('manualReward').value;
+      $('draftDeadline').value = $('manualDeadline').value;
+    }
+  });
+});
+
+function renderDraftSteps(){
+  $('draftSteps').innerHTML = draftStepsState.map((s,i) => `
+    <div class="draft-step" data-idx="${i}">
+      <input type="text" value="${escapeAttr(s.text)}" placeholder="ステップ内容" data-step-input="${i}">
+      <button type="button" data-step-remove="${i}">×</button>
+    </div>
+  `).join('');
+}
+function escapeAttr(str){ return (str??'').replace(/"/g,'&quot;'); }
+
+$('draftSteps').addEventListener('input', (e)=>{
+  const idx = e.target.dataset.stepInput;
+  if(idx !== undefined){
+    draftStepsState[idx].text = e.target.value;
+  }
+});
+$('draftSteps').addEventListener('click', (e)=>{
+  const idx = e.target.dataset.stepRemove;
+  if(idx !== undefined){
+    draftStepsState.splice(idx,1);
+    renderDraftSteps();
+  }
+});
+$('addDraftStepBtn').addEventListener('click', ()=>{
+  draftStepsState.push({id: uid(), text:'', done:false});
+  renderDraftSteps();
+});
+
+$('saveBtn').addEventListener('click', async ()=>{
+  const title = $('draftTitle').value.trim();
+  if(!title){
+    alert('案件名を入力してください');
+    return;
+  }
+  const steps = draftStepsState.map(s=>({id:s.id, text:s.text.trim(), done: !!s.done})).filter(s=>s.text);
+  if(steps.length === 0){
+    alert('少なくとも1つはステップを入力してください');
+    return;
+  }
+  if(editingId){
+    const c = campaigns.find(x=>x.id===editingId);
+    if(c){
+      c.title = title;
+      c.reward = $('draftReward').value.trim();
+      c.deadline = $('draftDeadline').value.trim();
+      c.steps = steps;
+    }
+  }else{
+    campaigns.push({
+      id: uid(),
+      title,
+      reward: $('draftReward').value.trim(),
+      deadline: $('draftDeadline').value.trim(),
+      steps,
+      createdAt: Date.now(),
+      _open: true
+    });
+  }
+  await saveCampaigns();
+  render();
+  closeModal();
+});
+
+loadCampaigns();
+
+// ---------- backup / restore ----------
+$('openBackupBtn').addEventListener('click', ()=>{
+  $('backupText').value = JSON.stringify(campaigns.map(({_open, ...rest})=>rest), null, 2);
+  $('restoreText').value = '';
+  $('backupOverlay').classList.add('open');
+});
+$('closeBackupBtn').addEventListener('click', ()=> $('backupOverlay').classList.remove('open'));
+$('backupOverlay').addEventListener('click', (e)=>{ if(e.target.id==='backupOverlay') $('backupOverlay').classList.remove('open'); });
+
+$('copyBackupBtn').addEventListener('click', async ()=>{
+  try{
+    await navigator.clipboard.writeText($('backupText').value);
+    $('copyBackupBtn').textContent = 'コピーしました ✓';
+    setTimeout(()=>{ $('copyBackupBtn').textContent = 'クリップボードにコピー'; }, 1800);
+  }catch(e){
+    $('backupText').select();
+    document.execCommand('copy');
+  }
+});
+
+$('restoreBtn').addEventListener('click', async ()=>{
+  const raw = $('restoreText').value.trim();
+  if(!raw){ alert('復元するデータを貼り付けてください'); return; }
+  try{
+    const parsed = JSON.parse(raw);
+    if(!Array.isArray(parsed)) throw new Error('形式が正しくありません');
+    campaigns = parsed;
+    await saveCampaigns();
+    render();
+    $('backupOverlay').classList.remove('open');
+  }catch(e){
+    alert('データを読み取れませんでした。正しいバックアップのテキストか確認してください。');
+  }
+});
+</script>
+</body>
+</html>
