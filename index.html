@@ -60,11 +60,42 @@
     transform:rotate(-8deg);
   }
   .hero-sub{font-size:11px; color:var(--ink-soft); letter-spacing:0.15em; margin-top:4px;}
+  .hero-stats{
+    display:flex; gap:16px;
+  }
   .hero-count{
     font-family:'Shippori Mincho', serif; text-align:right; color:var(--gold);
   }
   .hero-count .n{font-size:26px; font-weight:800; line-height:1;}
   .hero-count .l{font-size:10px; color:var(--ink-soft); letter-spacing:0.1em;}
+  .hero-count.points .n{color:var(--stamp);}
+
+  .confirm-banner{
+    display:flex; align-items:center; gap:10px;
+    background:var(--paper-deep); border:1px dashed var(--gold); border-radius:4px;
+    padding:10px 12px; margin-bottom:16px; font-size:12.5px; color:var(--ink);
+  }
+  .confirm-banner .icon{font-size:16px; flex-shrink:0;}
+  .confirm-banner .txt{flex:1; line-height:1.5;}
+  .confirm-banner .txt b{color:var(--gold);}
+
+  .confirm-row{
+    margin:0 18px 14px 22px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--paper-deep); border:1px dashed var(--gold); border-radius:2px;
+    padding:8px 12px; font-size:12px;
+  }
+  .confirm-row.confirmed{
+    border-style:solid; border-color:var(--stamp); color:var(--stamp-deep);
+  }
+  .confirm-row button{
+    flex-shrink:0; background:var(--ink); color:var(--paper); border:none;
+    border-radius:3px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer;
+    font-family:inherit;
+  }
+  .confirm-row.confirmed button{
+    background:transparent; color:var(--stamp-deep); border:1px solid var(--stamp);
+  }
 
   .add-bar{
     display:flex; gap:10px; margin-bottom:26px;
@@ -351,11 +382,19 @@
       <div class="hero-title"><span class="stamp-mark">記</span>ポイメモ</div>
       <div class="hero-sub">案件ごとの達成条件を、次の一手までひと目で</div>
     </div>
-    <div class="hero-count">
-      <div class="n" id="activeCount">0</div>
-      <div class="l">すすめ中の案件</div>
+    <div class="hero-stats">
+      <div class="hero-count">
+        <div class="n" id="activeCount">0</div>
+        <div class="l">すすめ中</div>
+      </div>
+      <div class="hero-count points">
+        <div class="n" id="totalPoints">0</div>
+        <div class="l">獲得予定P</div>
+      </div>
     </div>
   </header>
+
+  <div id="confirmBanner"></div>
 
   <div class="add-bar">
     <button class="btn btn-primary" id="openAddBtn">＋ 新しい案件を追加</button>
@@ -511,6 +550,14 @@ function progressOf(c){
   return Math.round((c.steps.filter(s=>s.done).length / c.steps.length) * 100);
 }
 
+function parsePoints(rewardText){
+  if(!rewardText) return 0;
+  const m = rewardText.match(/([\d,]+)\s*(?:P|ポイント|pt|円)/i);
+  if(!m) return 0;
+  const n = parseInt(m[1].replace(/,/g, ''), 10);
+  return isNaN(n) ? 0 : n;
+}
+
 function tabColorFor(pct){
   if(pct >= 100) return 'var(--stamp)';
   if(pct >= 50) return 'var(--gold-bright)';
@@ -530,7 +577,23 @@ function ringSvg(pct){
 
 function render(){
   const listEl = $('list');
+  const completed = campaigns.filter(c=>progressOf(c)>=100);
+  const totalPoints = completed.reduce((sum,c)=> sum + parsePoints(c.reward), 0);
+  const unconfirmed = completed.filter(c=>!c.pointsConfirmed);
+
   $('activeCount').textContent = campaigns.filter(c=>progressOf(c)<100).length;
+  $('totalPoints').textContent = totalPoints.toLocaleString();
+
+  if(unconfirmed.length > 0){
+    const pendingPoints = unconfirmed.reduce((sum,c)=> sum + parsePoints(c.reward), 0);
+    $('confirmBanner').innerHTML = `
+      <div class="confirm-banner">
+        <span class="icon">🔔</span>
+        <span class="txt"><b>${unconfirmed.length}件</b>の案件でポイント反映が未確認です${pendingPoints ? `（合計 <b>${pendingPoints.toLocaleString()}P</b>）` : ''}。各サービスでの反映状況をご確認ください。</span>
+      </div>`;
+  }else{
+    $('confirmBanner').innerHTML = '';
+  }
 
   if(campaigns.length === 0){
     listEl.innerHTML = `<div class="empty">
@@ -555,6 +618,12 @@ function render(){
     if(c.deadline) metaParts.push(`<span>⏳ ${escapeHtml(c.deadline)}</span>`);
     metaParts.push(`<span>${c.steps.filter(s=>s.done).length}/${c.steps.length} 完了</span>`);
 
+    const confirmRow = pct >= 100 ? `
+      <div class="confirm-row ${c.pointsConfirmed ? 'confirmed' : ''}">
+        <span>${c.pointsConfirmed ? '✓ ポイント反映を確認済み' : 'ポイントの反映、確認しましたか？'}</span>
+        <button type="button" data-confirm-toggle="${c.id}">${c.pointsConfirmed ? '確認を取り消す' : '確認済みにする'}</button>
+      </div>` : '';
+
     return `
     <div class="card" style="--tab-color:${tabColorFor(pct)}" data-id="${c.id}">
       <div class="card-head" data-toggle="${c.id}">
@@ -568,6 +637,7 @@ function render(){
         <span class="lbl">${nextStep ? '次にやる' : '達成'}</span>
         <span>${nextStep ? escapeHtml(nextStep.text) : 'すべての条件を達成しました！'}</span>
       </div>
+      ${confirmRow}
       <div class="steps ${c._open ? 'open' : ''}" id="steps-${c.id}">
         ${c.steps.map((s, i) => {
           const isNextUp = !s.done && s.id === (nextStep && nextStep.id);
@@ -634,6 +704,16 @@ document.addEventListener('click', async (e) => {
   const editId = e.target.closest('[data-edit]')?.dataset.edit;
   if(editId){
     openEditModal(editId);
+    return;
+  }
+  const confirmId = e.target.closest('[data-confirm-toggle]')?.dataset.confirmToggle;
+  if(confirmId){
+    const c = campaigns.find(x=>x.id===confirmId);
+    if(c){
+      c.pointsConfirmed = !c.pointsConfirmed;
+      render();
+      await saveCampaigns();
+    }
     return;
   }
 });
@@ -902,6 +982,7 @@ $('saveBtn').addEventListener('click', async ()=>{
       deadline: $('draftDeadline').value.trim(),
       steps,
       createdAt: Date.now(),
+      pointsConfirmed: false,
       _open: true
     });
   }
