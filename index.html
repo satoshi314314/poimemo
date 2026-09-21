@@ -387,11 +387,37 @@
     <div class="modal-title" id="modalTitle">新しい案件</div>
 
     <div class="tabbar" id="tabbarRow">
-      <button id="tabImage" class="active">画像から読み取る</button>
+      <button id="tabText" class="active">テキストを貼り付け</button>
+      <button id="tabImage">画像から読み取る</button>
       <button id="tabManual">手入力する</button>
     </div>
 
-    <div id="paneImage">
+    <div id="paneText">
+      <div class="ai-status" style="background:var(--paper-deep); padding:10px 12px; border-radius:4px; align-items:flex-start; color:var(--ink-soft); font-weight:400; line-height:1.7;">
+        <span>まずClaudeのチャットにスクショを送り、下のひな形をそのまま貼り付けて依頼してください。返ってきたテキストを、その下の欄に貼り付ければ自動でステップに分解されます。</span>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Claudeへの依頼文（コピーしてスクショと一緒に送る）</label>
+        <textarea id="templateText" readonly style="min-height:120px; font-size:11.5px; background:var(--paper-deep);">この画像のポイ活キャンペーンの達成条件を、次の形式のテキストで書き出してください。
+
+案件名：
+特典：
+期限：
+ステップ：
+1.
+2.
+3.</textarea>
+      </div>
+      <button class="btn btn-ghost" id="copyTemplateBtn" style="width:100%; margin-bottom:16px;">依頼文をコピー</button>
+      <div class="field">
+        <label>Claudeから返ってきたテキストを貼り付け</label>
+        <textarea id="pasteText" style="min-height:140px;" placeholder="案件名：〇〇銀行 口座開設キャンペーン&#10;特典：3,000円相当のポイント&#10;期限：2026年9月30日まで&#10;ステップ：&#10;1. 公式サイトから申込む&#10;2. ..."></textarea>
+      </div>
+      <button class="btn btn-primary" id="parseTextBtn" style="width:100%;">テキストからステップを作る</button>
+      <div id="textParseError"></div>
+    </div>
+
+    <div id="paneImage" style="display:none;">
       <div class="field">
         <label>条件が書かれた画面のスクリーンショット（複数枚OK）</label>
         <div class="upload-zone" id="uploadZone">
@@ -651,12 +677,14 @@ function closeModal(){
 }
 function resetModal(){
   editingId = null;
-  currentMode = 'image';
+  currentMode = 'text';
   $('modalTitle').textContent = '新しい案件';
   $('tabbarRow').style.display = 'flex';
-  $('tabImage').classList.add('active');
+  $('tabText').classList.add('active');
+  $('tabImage').classList.remove('active');
   $('tabManual').classList.remove('active');
-  $('paneImage').style.display = 'block';
+  $('paneText').style.display = 'block';
+  $('paneImage').style.display = 'none';
   $('paneManual').style.display = 'none';
   $('draftArea').style.display = 'none';
   $('saveBtn').style.display = 'none';
@@ -667,6 +695,8 @@ function resetModal(){
   $('manualTitle').value = '';
   $('manualReward').value = '';
   $('manualDeadline').value = '';
+  $('pasteText').value = '';
+  $('textParseError').innerHTML = '';
   uploadedImages = [];
 }
 
@@ -679,6 +709,7 @@ function openEditModal(id){
   $('tabbarRow').style.display = 'none';
   $('paneImage').style.display = 'none';
   $('paneManual').style.display = 'none';
+  $('paneText').style.display = 'none';
   $('aiStatusArea').innerHTML = '';
   $('draftArea').style.display = 'block';
   $('saveBtn').style.display = 'block';
@@ -698,8 +729,10 @@ $('tabImage').addEventListener('click', ()=>{
   currentMode = 'image';
   $('tabImage').classList.add('active');
   $('tabManual').classList.remove('active');
+  $('tabText').classList.remove('active');
   $('paneImage').style.display = 'block';
   $('paneManual').style.display = 'none';
+  $('paneText').style.display = 'none';
   $('draftArea').style.display = 'none';
   $('saveBtn').style.display = 'none';
 });
@@ -707,12 +740,92 @@ $('tabManual').addEventListener('click', ()=>{
   currentMode = 'manual';
   $('tabManual').classList.add('active');
   $('tabImage').classList.remove('active');
+  $('tabText').classList.remove('active');
   $('paneManual').style.display = 'block';
   $('paneImage').style.display = 'none';
+  $('paneText').style.display = 'none';
   $('draftArea').style.display = 'none';
   $('saveBtn').style.display = 'none';
   // 手入力はいきなり下書きへ
   showDraftForManual();
+});
+$('tabText').addEventListener('click', ()=>{
+  currentMode = 'text';
+  $('tabText').classList.add('active');
+  $('tabImage').classList.remove('active');
+  $('tabManual').classList.remove('active');
+  $('paneText').style.display = 'block';
+  $('paneImage').style.display = 'none';
+  $('paneManual').style.display = 'none';
+  $('draftArea').style.display = 'none';
+  $('saveBtn').style.display = 'none';
+});
+
+$('copyTemplateBtn').addEventListener('click', async ()=>{
+  try{
+    await navigator.clipboard.writeText($('templateText').value);
+    $('copyTemplateBtn').textContent = 'コピーしました ✓';
+    setTimeout(()=>{ $('copyTemplateBtn').textContent = 'ひな形をコピー'; }, 1800);
+  }catch(e){
+    $('templateText').select();
+    document.execCommand('copy');
+  }
+});
+
+function parseFreeText(raw){
+  const text = raw.trim();
+  if(!text) return null;
+
+  // 1) まずJSONとして読めるか試す
+  const cleanJson = text.replace(/^```json\s*/i, '').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+  try{
+    const parsed = JSON.parse(cleanJson);
+    if(parsed && typeof parsed === 'object'){
+      return {
+        title: parsed.title || '',
+        reward: parsed.reward || '',
+        deadline: parsed.deadline || '',
+        steps: Array.isArray(parsed.steps) ? parsed.steps.filter(Boolean) : []
+      };
+    }
+  }catch(e){ /* JSONではない、行ベースで解析する */ }
+
+  // 2) 「案件名：」「特典：」「期限：」「ステップ：」形式の行ベース解析
+  const lines = text.split(/\r?\n/).map(l=>l.trim());
+  let title = '', reward = '', deadline = '';
+  const steps = [];
+  let inSteps = false;
+
+  for(const line of lines){
+    if(!line) continue;
+    const mTitle = line.match(/^(案件名|案件|キャンペーン名)\s*[:：]\s*(.*)$/);
+    const mReward = line.match(/^(特典|ポイント|報酬)\s*[:：]\s*(.*)$/);
+    const mDeadline = line.match(/^(期限|期日)\s*[:：]\s*(.*)$/);
+    const mStepsHeader = line.match(/^(ステップ|手順|タスク)\s*[:：]?\s*$/);
+    const mStepLine = line.match(/^(?:[\d０-９]+[\.\)、．]|[-・◦])\s*(.+)$/);
+
+    if(mTitle){ title = mTitle[2].trim(); inSteps = false; continue; }
+    if(mReward){ reward = mReward[2].trim(); inSteps = false; continue; }
+    if(mDeadline){ deadline = mDeadline[2].trim(); inSteps = false; continue; }
+    if(mStepsHeader){ inSteps = true; continue; }
+    if(mStepLine){ steps.push(mStepLine[1].trim()); inSteps = true; continue; }
+    if(inSteps && line){ steps.push(line); continue; }
+    if(!title){ title = line; }
+  }
+
+  if(!title && steps.length === 0) return null;
+  return { title, reward, deadline, steps };
+}
+
+$('parseTextBtn').addEventListener('click', ()=>{
+  const raw = $('pasteText').value;
+  $('textParseError').innerHTML = '';
+  const parsed = parseFreeText(raw);
+  if(!parsed || (!parsed.title && parsed.steps.length === 0)){
+    $('textParseError').innerHTML = `<div class="ai-error">テキストを読み取れませんでした。ひな形の形式に近い形で貼り付けてみてください。</div>`;
+    return;
+  }
+  showDraft(parsed);
 });
 
 $('uploadZone').addEventListener('click', (e)=>{
@@ -778,6 +891,12 @@ $('analyzeBtn').addEventListener('click', analyzeImage);
 
 async function analyzeImage(){
   if(!uploadedImages.length) return;
+
+  if(!hasClaudeStorage){
+    $('aiStatusArea').innerHTML = `<div class="ai-error">この機能はClaudeのプレビュー内でのみ使えます。GitHubなど他の場所で開いている場合は「テキストを貼り付け」タブをお使いください。</div>`;
+    return;
+  }
+
   $('aiStatusArea').innerHTML = `<div class="ai-status"><div class="spinner"></div>画像を読み取っています…</div>`;
   $('analyzeBtn').disabled = true;
   $('draftArea').style.display = 'none';
