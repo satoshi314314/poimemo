@@ -720,6 +720,99 @@ $('pasteClipboardBtn').addEventListener('click', async ()=>{
   }
 });
 
+function parseFreeText(raw){
+  const text = raw.trim();
+  if(!text) return null;
+
+  // 1) まずJSONとして読めるか試す
+  const cleanJson = text.replace(/^```json\s*/i, '').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+  try{
+    const parsed = JSON.parse(cleanJson);
+    if(parsed && typeof parsed === 'object'){
+      return {
+        title: parsed.title || '',
+        reward: parsed.reward || '',
+        deadline: parsed.deadline || '',
+        steps: Array.isArray(parsed.steps) ? parsed.steps.filter(Boolean) : []
+      };
+    }
+  }catch(e){ /* JSONではない、行ベースで解析する */ }
+
+  // 2) 「案件名：」「特典：」「期限：」「ステップ：」形式の行ベース解析
+  const lines = text.split(/\r?\n/).map(l=>l.trim());
+  let title = '', reward = '', deadline = '';
+  const steps = [];
+  let inSteps = false;
+
+  for(const rawLine of lines){
+    const line = rawLine;
+    if(!line) continue;
+
+    // 【案件名】〜 / [Reward] 〜 のような角括弧見出し行
+    const mBracket = line.match(/^[【\[]([^】\]]+)[】\]]\s*(.*)$/);
+    if(mBracket){
+      const label = mBracket[1];
+      const rest = mBracket[2].trim();
+      if(/案件名|案件|キャンペーン名|サービス名/.test(label)){ title = rest || title; inSteps = false; continue; }
+      if(/還元|特典|ポイント|報酬|もらえる/.test(label)){ reward = rest || reward; inSteps = false; continue; }
+      if(/期限|期日|締切/.test(label)){ deadline = rest || deadline; inSteps = false; continue; }
+      if(/ステップ|手順|タスク|やること/.test(label)){ inSteps = true; if(rest){ steps.push(rest); } continue; }
+      // 「注意事項」など未知の見出し → ここでステップ収集を打ち切る
+      inSteps = false;
+      continue;
+    }
+
+    const mTitle = line.match(/^(案件名|案件|キャンペーン名|サービス名)\s*[:：]\s*(.*)$/);
+    const mReward = line.match(/^(特典|ポイント|報酬|もらえるもの)\s*[:：]\s*(.*)$/);
+    const mDeadline = line.match(/^(期限|期日|締切)\s*[:：]\s*(.*)$/);
+    // 見出し行：「ステップ」「手順」「タスク」だけの行、または後ろに何も続かない行
+    const mStepsHeader = line.match(/^(ステップ|手順|タスク|やること)\s*[:：]?\s*$/);
+
+    if(mTitle){ title = mTitle[2].trim() || title; inSteps = false; continue; }
+    if(mReward){ reward = mReward[2].trim() || reward; inSteps = false; continue; }
+    if(mDeadline){ deadline = mDeadline[2].trim() || deadline; inSteps = false; continue; }
+    if(mStepsHeader){ inSteps = true; continue; }
+
+    // 先頭の記号（■●◆▶►☆★○◎など）を取り除いてから判定する
+    const stripped = line.replace(/^[■●◆▶►☆★○◎]+\s*/, '');
+
+    // 「ステップ1：内容」「STEP2 内容」「■Step3：内容」のように見出しと内容が同じ行にあるパターン
+    const mStepInline = stripped.match(/^(?:ステップ|STEP|Step|手順)\s*[\d０-９]*\s*[:：\.\)]\s*(.+)$/i);
+    if(mStepInline){ steps.push(mStepInline[1].trim()); inSteps = true; continue; }
+
+    // 丸数字（①②…）、全角/半角数字＋区切り、漢数字＋区切り、記号箇条書きのいずれか
+    const mStepBullet = stripped.match(/^(?:[①-⑳]|[\d０-９]+\s*[\.\)、．]|[一二三四五六七八九十]+\s*[\.\)、．]|[-・◦＊\*])\s*(.+)$/);
+    if(mStepBullet){
+      // ステップ収集中の箇条書きだけをステップとして扱う（注意事項の箇条書き等は無視）
+      if(inSteps){ steps.push(mStepBullet[1].trim()); }
+      continue;
+    }
+
+    // 「→ 2,500P」のような続き行は、新しいステップにせず直前のステップに補足として追記
+    const mContinuation = line.match(/^(?:→|⇒|▶)\s*(.+)$/);
+    if(mContinuation && inSteps && steps.length){
+      steps[steps.length - 1] = `${steps[steps.length - 1]}（${mContinuation[1].trim()}）`;
+      continue;
+    }
+
+    if(inSteps && line){ steps.push(line); continue; }
+    if(!title){ title = line; }
+  }
+
+  if(!title && steps.length === 0) return null;
+  return { title, reward, deadline, steps };
+}
+
+$('parseTextBtn').addEventListener('click', ()=>{
+  const raw = $('pasteText').value;
+  $('textParseError').innerHTML = '';
+  const parsed = parseFreeText(raw);
+  if(!parsed || (!parsed.title && parsed.steps.length === 0)){
+    $('textParseError').innerHTML = `<div class="ai-error">テキストを読み取れませんでした。案件名やステップの書き方を見直してみてください。</div>`;
+    return;
+  }
+  showDraft(parsed);
+});
 
 let draftStepsState = [];
 
