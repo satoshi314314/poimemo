@@ -388,48 +388,17 @@
 
     <div class="tabbar" id="tabbarRow">
       <button id="tabText" class="active">テキストを貼り付け</button>
-      <button id="tabImage">画像から読み取る</button>
       <button id="tabManual">手入力する</button>
     </div>
 
     <div id="paneText">
-      <div class="ai-status" style="background:var(--paper-deep); padding:10px 12px; border-radius:4px; align-items:flex-start; color:var(--ink-soft); font-weight:400; line-height:1.7;">
-        <span>まずClaudeのチャットにスクショを送り、下のひな形をそのまま貼り付けて依頼してください。返ってきたテキストを、その下の欄に貼り付ければ自動でステップに分解されます。</span>
-      </div>
-      <div class="field" style="margin-top:12px;">
-        <label>Claudeへの依頼文（コピーしてスクショと一緒に送る）</label>
-        <textarea id="templateText" readonly style="min-height:120px; font-size:11.5px; background:var(--paper-deep);">この画像のポイ活キャンペーンの達成条件を、次の形式のテキストで書き出してください。
-
-案件名：
-特典：
-期限：
-ステップ：
-1.
-2.
-3.</textarea>
-      </div>
-      <button class="btn btn-ghost" id="copyTemplateBtn" style="width:100%; margin-bottom:16px;">依頼文をコピー</button>
       <div class="field">
         <label>Claudeから返ってきたテキストを貼り付け</label>
         <textarea id="pasteText" style="min-height:140px;" placeholder="案件名：〇〇銀行 口座開設キャンペーン&#10;特典：3,000円相当のポイント&#10;期限：2026年9月30日まで&#10;ステップ：&#10;1. 公式サイトから申込む&#10;2. ..."></textarea>
       </div>
+      <button class="btn btn-ghost" id="pasteClipboardBtn" style="width:100%; margin-bottom:10px;">📋 クリップボードから貼り付け</button>
       <button class="btn btn-primary" id="parseTextBtn" style="width:100%;">テキストからステップを作る</button>
       <div id="textParseError"></div>
-    </div>
-
-    <div id="paneImage" style="display:none;">
-      <div class="field">
-        <label>条件が書かれた画面のスクリーンショット（複数枚OK）</label>
-        <div class="upload-zone" id="uploadZone">
-          <div id="uploadZoneContent">
-            <div class="hint-main">タップして画像を選択</div>
-            <div class="hint">キャンペーンページや条件一覧の画面など。複数枚まとめて選べます</div>
-          </div>
-        </div>
-        <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
-      </div>
-      <button class="btn btn-primary" id="analyzeBtn" style="width:100%;" disabled>AIで達成条件を読み取る</button>
-      <div id="aiStatusArea"></div>
     </div>
 
     <div id="paneManual" style="display:none;">
@@ -477,8 +446,7 @@
 <script>
 const STORAGE_KEY = 'poikatsu:campaigns';
 let campaigns = [];
-let uploadedImages = []; // [{base64, mediaType, dataUrl}]
-let currentMode = 'image'; // 'image' | 'manual'
+let currentMode = 'text'; // 'text' | 'manual'
 let editingId = null;
 
 const $ = (id) => document.getElementById(id);
@@ -681,23 +649,16 @@ function resetModal(){
   $('modalTitle').textContent = '新しい案件';
   $('tabbarRow').style.display = 'flex';
   $('tabText').classList.add('active');
-  $('tabImage').classList.remove('active');
   $('tabManual').classList.remove('active');
   $('paneText').style.display = 'block';
-  $('paneImage').style.display = 'none';
   $('paneManual').style.display = 'none';
   $('draftArea').style.display = 'none';
   $('saveBtn').style.display = 'none';
-  $('aiStatusArea').innerHTML = '';
-  $('analyzeBtn').disabled = true;
-  $('uploadZoneContent').innerHTML = `<div class="hint-main">タップして画像を選択</div><div class="hint">キャンペーンページや条件一覧の画面など。複数枚まとめて選べます</div>`;
-  $('fileInput').value = '';
   $('manualTitle').value = '';
   $('manualReward').value = '';
   $('manualDeadline').value = '';
   $('pasteText').value = '';
   $('textParseError').innerHTML = '';
-  uploadedImages = [];
 }
 
 function openEditModal(id){
@@ -707,10 +668,8 @@ function openEditModal(id){
   $('overlay').classList.add('open');
   $('modalTitle').textContent = '案件を編集';
   $('tabbarRow').style.display = 'none';
-  $('paneImage').style.display = 'none';
   $('paneManual').style.display = 'none';
   $('paneText').style.display = 'none';
-  $('aiStatusArea').innerHTML = '';
   $('draftArea').style.display = 'block';
   $('saveBtn').style.display = 'block';
   $('draftTitle').value = c.title;
@@ -725,24 +684,11 @@ $('closeModalBtn').addEventListener('click', closeModal);
 $('cancelBtn').addEventListener('click', closeModal);
 $('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeModal(); });
 
-$('tabImage').addEventListener('click', ()=>{
-  currentMode = 'image';
-  $('tabImage').classList.add('active');
-  $('tabManual').classList.remove('active');
-  $('tabText').classList.remove('active');
-  $('paneImage').style.display = 'block';
-  $('paneManual').style.display = 'none';
-  $('paneText').style.display = 'none';
-  $('draftArea').style.display = 'none';
-  $('saveBtn').style.display = 'none';
-});
 $('tabManual').addEventListener('click', ()=>{
   currentMode = 'manual';
   $('tabManual').classList.add('active');
-  $('tabImage').classList.remove('active');
   $('tabText').classList.remove('active');
   $('paneManual').style.display = 'block';
-  $('paneImage').style.display = 'none';
   $('paneText').style.display = 'none';
   $('draftArea').style.display = 'none';
   $('saveBtn').style.display = 'none';
@@ -752,256 +698,25 @@ $('tabManual').addEventListener('click', ()=>{
 $('tabText').addEventListener('click', ()=>{
   currentMode = 'text';
   $('tabText').classList.add('active');
-  $('tabImage').classList.remove('active');
   $('tabManual').classList.remove('active');
   $('paneText').style.display = 'block';
-  $('paneImage').style.display = 'none';
   $('paneManual').style.display = 'none';
   $('draftArea').style.display = 'none';
   $('saveBtn').style.display = 'none';
 });
 
-$('copyTemplateBtn').addEventListener('click', async ()=>{
+$('pasteClipboardBtn').addEventListener('click', async ()=>{
   try{
-    await navigator.clipboard.writeText($('templateText').value);
-    $('copyTemplateBtn').textContent = 'コピーしました ✓';
-    setTimeout(()=>{ $('copyTemplateBtn').textContent = 'ひな形をコピー'; }, 1800);
+    const text = await navigator.clipboard.readText();
+    if(text){
+      $('pasteText').value = text;
+      $('textParseError').innerHTML = '';
+    }
   }catch(e){
-    $('templateText').select();
-    document.execCommand('copy');
+    $('textParseError').innerHTML = `<div class="ai-error">クリップボードから読み取れませんでした。テキスト欄に直接長押しで貼り付けてください。</div>`;
   }
 });
 
-function parseFreeText(raw){
-  const text = raw.trim();
-  if(!text) return null;
-
-  // 1) まずJSONとして読めるか試す
-  const cleanJson = text.replace(/^```json\s*/i, '').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
-  try{
-    const parsed = JSON.parse(cleanJson);
-    if(parsed && typeof parsed === 'object'){
-      return {
-        title: parsed.title || '',
-        reward: parsed.reward || '',
-        deadline: parsed.deadline || '',
-        steps: Array.isArray(parsed.steps) ? parsed.steps.filter(Boolean) : []
-      };
-    }
-  }catch(e){ /* JSONではない、行ベースで解析する */ }
-
-  // 2) 「案件名：」「特典：」「期限：」「ステップ：」形式の行ベース解析
-  const lines = text.split(/\r?\n/).map(l=>l.trim());
-  let title = '', reward = '', deadline = '';
-  const steps = [];
-  let inSteps = false;
-
-  for(const rawLine of lines){
-    const line = rawLine;
-    if(!line) continue;
-
-    // 【案件名】〜 / [Reward] 〜 のような角括弧見出し行
-    const mBracket = line.match(/^[【\[]([^】\]]+)[】\]]\s*(.*)$/);
-    if(mBracket){
-      const label = mBracket[1];
-      const rest = mBracket[2].trim();
-      if(/案件名|案件|キャンペーン名|サービス名/.test(label)){ title = rest || title; inSteps = false; continue; }
-      if(/還元|特典|ポイント|報酬|もらえる/.test(label)){ reward = rest || reward; inSteps = false; continue; }
-      if(/期限|期日|締切/.test(label)){ deadline = rest || deadline; inSteps = false; continue; }
-      if(/ステップ|手順|タスク|やること/.test(label)){ inSteps = true; if(rest){ steps.push(rest); } continue; }
-      // 「注意事項」など未知の見出し → ここでステップ収集を打ち切る
-      inSteps = false;
-      continue;
-    }
-
-    const mTitle = line.match(/^(案件名|案件|キャンペーン名|サービス名)\s*[:：]\s*(.*)$/);
-    const mReward = line.match(/^(特典|ポイント|報酬|もらえるもの)\s*[:：]\s*(.*)$/);
-    const mDeadline = line.match(/^(期限|期日|締切)\s*[:：]\s*(.*)$/);
-    // 見出し行：「ステップ」「手順」「タスク」だけの行、または後ろに何も続かない行
-    const mStepsHeader = line.match(/^(ステップ|手順|タスク|やること)\s*[:：]?\s*$/);
-
-    if(mTitle){ title = mTitle[2].trim() || title; inSteps = false; continue; }
-    if(mReward){ reward = mReward[2].trim() || reward; inSteps = false; continue; }
-    if(mDeadline){ deadline = mDeadline[2].trim() || deadline; inSteps = false; continue; }
-    if(mStepsHeader){ inSteps = true; continue; }
-
-    // 先頭の記号（■●◆▶►☆★○◎など）を取り除いてから判定する
-    const stripped = line.replace(/^[■●◆▶►☆★○◎]+\s*/, '');
-
-    // 「ステップ1：内容」「STEP2 内容」「■Step3：内容」のように見出しと内容が同じ行にあるパターン
-    const mStepInline = stripped.match(/^(?:ステップ|STEP|Step|手順)\s*[\d０-９]*\s*[:：\.\)]\s*(.+)$/i);
-    if(mStepInline){ steps.push(mStepInline[1].trim()); inSteps = true; continue; }
-
-    // 丸数字（①②…）、全角/半角数字＋区切り、漢数字＋区切り、記号箇条書きのいずれか
-    const mStepBullet = stripped.match(/^(?:[①-⑳]|[\d０-９]+\s*[\.\)、．]|[一二三四五六七八九十]+\s*[\.\)、．]|[-・◦＊\*])\s*(.+)$/);
-    if(mStepBullet){
-      // ステップ収集中の箇条書きだけをステップとして扱う（注意事項の箇条書き等は無視）
-      if(inSteps){ steps.push(mStepBullet[1].trim()); }
-      continue;
-    }
-
-    // 「→ 2,500P」のような続き行は、新しいステップにせず直前のステップに補足として追記
-    const mContinuation = line.match(/^(?:→|⇒|▶)\s*(.+)$/);
-    if(mContinuation && inSteps && steps.length){
-      steps[steps.length - 1] = `${steps[steps.length - 1]}（${mContinuation[1].trim()}）`;
-      continue;
-    }
-
-    if(inSteps && line){ steps.push(line); continue; }
-    if(!title){ title = line; }
-  }
-
-  if(!title && steps.length === 0) return null;
-  return { title, reward, deadline, steps };
-}
-
-$('parseTextBtn').addEventListener('click', ()=>{
-  const raw = $('pasteText').value;
-  $('textParseError').innerHTML = '';
-  const parsed = parseFreeText(raw);
-  if(!parsed || (!parsed.title && parsed.steps.length === 0)){
-    $('textParseError').innerHTML = `<div class="ai-error">テキストを読み取れませんでした。ひな形の形式に近い形で貼り付けてみてください。</div>`;
-    return;
-  }
-  showDraft(parsed);
-});
-
-$('uploadZone').addEventListener('click', (e)=>{
-  if(e.target.closest('.thumb-remove')) return;
-  $('fileInput').click();
-});
-$('fileInput').addEventListener('change', async (e)=>{
-  const files = Array.from(e.target.files || []);
-  if(!files.length) return;
-
-  const readOne = (file) => new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      resolve({ base64: dataUrl.split(',')[1], mediaType: file.type || 'image/png', dataUrl });
-    };
-    reader.onerror = () => reject(new Error('画像の読み込みに失敗しました'));
-    reader.readAsDataURL(file);
-  });
-
-  try{
-    const results = await Promise.all(files.map(readOne));
-    uploadedImages = uploadedImages.concat(results);
-    renderThumbs();
-  }catch(err){
-    console.error(err);
-  }
-  $('fileInput').value = '';
-});
-
-function renderThumbs(){
-  $('analyzeBtn').disabled = uploadedImages.length === 0;
-  if(uploadedImages.length === 0){
-    $('uploadZoneContent').innerHTML = `<div class="hint-main">タップして画像を選択</div><div class="hint">キャンペーンページや条件一覧の画面など。複数枚まとめて選べます</div>`;
-    return;
-  }
-  const thumbs = uploadedImages.map((img, i) => `
-    <div class="thumb-item">
-      <img src="${img.dataUrl}" alt="screenshot ${i+1}">
-      <button type="button" class="thumb-remove" data-thumb-remove="${i}">×</button>
-    </div>
-  `).join('');
-  $('uploadZoneContent').innerHTML = `
-    <div class="thumb-grid">
-      ${thumbs}
-      <div class="thumb-add" id="thumbAddBtn">＋</div>
-    </div>
-    <div class="hint">${uploadedImages.length}枚選択中・タップで追加</div>
-  `;
-  const addBtn = document.getElementById('thumbAddBtn');
-  if(addBtn) addBtn.addEventListener('click', (e)=>{ e.stopPropagation(); $('fileInput').click(); });
-}
-
-$('uploadZoneContent') && document.addEventListener('click', (e)=>{
-  const idx = e.target.closest('[data-thumb-remove]')?.dataset.thumbRemove;
-  if(idx !== undefined){
-    uploadedImages.splice(Number(idx), 1);
-    renderThumbs();
-  }
-});
-
-$('analyzeBtn').addEventListener('click', analyzeImage);
-
-async function analyzeImage(){
-  if(!uploadedImages.length) return;
-
-  if(!hasClaudeStorage){
-    $('aiStatusArea').innerHTML = `<div class="ai-error">この機能はClaudeのプレビュー内でのみ使えます。GitHubなど他の場所で開いている場合は「テキストを貼り付け」タブをお使いください。</div>`;
-    return;
-  }
-
-  $('aiStatusArea').innerHTML = `<div class="ai-status"><div class="spinner"></div>画像を読み取っています…</div>`;
-  $('analyzeBtn').disabled = true;
-  $('draftArea').style.display = 'none';
-  $('saveBtn').style.display = 'none';
-
-  try{
-    const imageBlocks = uploadedImages.map(img => ({
-      type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 }
-    }));
-    const promptText = uploadedImages.length > 1
-      ? `これらは同じ「ポイ活」キャンペーンの条件が書かれた画面のスクリーンショット（複数枚）です。すべての画像の内容を合わせて、達成条件をひとつのタスクリストに整理してください。`
-      : `これは「ポイ活」キャンペーンの条件が書かれた画面のスクリーンショットです。`;
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            ...imageBlocks,
-            { type: 'text', text: `${promptText}
-達成条件を、実行する順番に沿った具体的なタスクのリストに分解してください。
-JSONオブジェクトのみを返してください。前置きや説明、Markdownのコードフェンスは一切不要です。
-
-出力形式（このJSON構造のみを出力）:
-{
-  "title": "案件名（サービス名やキャンペーン名）",
-  "reward": "もらえる特典やポイント数（不明なら空文字）",
-  "deadline": "期限（不明なら空文字）",
-  "steps": ["ステップ1の説明", "ステップ2の説明", "..."]
-}
-
-ステップは「口座を開設する」「アプリでエントリーする」「初回ログインする」のように、ユーザーが次に何をすればいいか一目でわかる具体的な行動として書いてください。5〜8個程度を目安にしてください。` }
-          ]
-        }]
-      })
-    });
-
-    if(!response.ok){
-      throw new Error('API request failed: ' + response.status);
-    }
-
-    const data = await response.json();
-    const textBlock = (data.content || []).find(b => b.type === 'text');
-    if(!textBlock) throw new Error('AIからの応答にテキストが含まれていません');
-
-    let clean = textBlock.text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/,'').replace(/```\s*$/,'');
-    let parsed;
-    try{
-      parsed = JSON.parse(clean);
-    }catch(parseErr){
-      throw new Error('AIの応答を解析できませんでした。もう一度お試しください。');
-    }
-
-    $('aiStatusArea').innerHTML = `<div class="ai-status" style="color:var(--stamp);">✓ 読み取りが完了しました。内容を確認して保存してください。</div>`;
-    showDraft(parsed);
-
-  }catch(err){
-    console.error(err);
-    $('aiStatusArea').innerHTML = `<div class="ai-error">読み取りに失敗しました：${escapeHtml(err.message || String(err))}<br>もう一度試すか、「手入力する」タブから直接入力してください。</div>`;
-  }finally{
-    $('analyzeBtn').disabled = false;
-  }
-}
 
 let draftStepsState = [];
 
